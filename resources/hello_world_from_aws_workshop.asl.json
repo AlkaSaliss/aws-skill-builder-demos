@@ -1,0 +1,101 @@
+{
+    "Comment": "A description of my state machine",
+    "StartAt": "Set Variables and State Output",
+    "States": {
+        "Set Variables and State Output": {
+            "Type": "Pass",
+            "Comment": "test",
+            "Output": {
+                "IsHelloWorldExample": "{% $states.input.hello_world %}",
+                "ExecutionWaitTimeInSeconds": "{% $states.input.wait %}"
+            },
+            "Next": "Is Hello World Example?",
+            "Assign": {
+                "CheckpointCount": 0
+            }
+        },
+        "Is Hello World Example?": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Next": "Wait for X Seconds",
+                    "Condition": "{% $states.input.IsHelloWorldExample %}"
+                }
+            ],
+            "Default": "DetectSentiment"
+        },
+        "DetectSentiment": {
+            "Type": "Task",
+            "Arguments": {
+                "LanguageCode": "en",
+                "Text": "{% $states.context.Execution.Input.text %}"
+            },
+            "Resource": "arn:aws:states:::aws-sdk:comprehend:detectSentiment",
+            "Next": "Success"
+        },
+        "Success": {
+            "Type": "Succeed"
+        },
+        "Wait for X Seconds": {
+            "Type": "Wait",
+            "Seconds": "{% $states.input.ExecutionWaitTimeInSeconds %}",
+            "Next": "Execute in Parallel"
+        },
+        "Execute in Parallel": {
+            "Type": "Parallel",
+            "Branches": [
+                {
+                    "StartAt": "Format Execution Start Date",
+                    "States": {
+                        "Format Execution Start Date": {
+                            "Type": "Pass",
+                            "End": true,
+                            "Output": {
+                                "FormattedExecutionStartDate": "{% $fromMillis($toMillis($states.context.State.EnteredTime), '[M01]/[D01]') %}"
+                            }
+                        }
+                    }
+                },
+                {
+                    "StartAt": "Snapshot Execution Elapsed Time",
+                    "States": {
+                        "Snapshot Execution Elapsed Time": {
+                            "Type": "Pass",
+                            "End": true,
+                            "Output": {
+                                "ElapsedTimeToSnapshot": "{% ($toMillis($now()) - $toMillis($states.context.Execution.StartTime)) / 1000 %}"
+                            }
+                        }
+                    }
+                }
+            ],
+            "Next": "Set Checkpoint",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.QueryEvaluationError"
+                    ],
+                    "Next": "Set Checkpoint",
+                    "Output": {
+                        "ElapsedTimeToSnapshot": "Failed to calculate",
+                        "FormattedExecutionStartDate": "Failed to format"
+                    }
+                }
+            ]
+        },
+        "Set Checkpoint": {
+            "Type": "Pass",
+            "Next": "Summarize the Execution",
+            "Assign": {
+                "CheckpointCount": "{% $CheckpointCount + 1 %}"
+            }
+        },
+        "Summarize the Execution": {
+            "Type": "Succeed",
+            "Output": {
+                "Summary": "{% 'This Hello World execution began on ' & $states.input.FormattedExecutionStartDate & '. The state machine ran for ' & $states.input.ElapsedTimeToSnapshot & ' seconds before the snapshot was taken, passing through ' & $CheckpointCount & ' checkpoints, and has successfully completed.' %}"
+            }
+        }
+    },
+    "QueryLanguage": "JSONata"
+}

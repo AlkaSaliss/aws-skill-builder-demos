@@ -1,0 +1,44 @@
+{
+  "Comment": "Send a task token to SQS and wait for the Lambda callback.",
+  "QueryLanguage": "JSONata",
+  "StartAt": "StartTaskAndWaitForCallback",
+  "States": {
+    "StartTaskAndWaitForCallback": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sqs:sendMessage.waitForTaskToken",
+      "Arguments": {
+        "QueueUrl": "${queue_url}",
+        "MessageBody": {
+          "MessageTitle": "Task started by Step Functions.",
+          "TaskToken": "{% $states.context.Task.Token %}"
+        }
+      },
+      "TimeoutSeconds": 300,
+      "Next": "NotifySuccess",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyFailure"
+        }
+      ]
+    },
+    "NotifySuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Arguments": {
+        "TopicArn": "${success_topic_arn}",
+        "Message": "{% $string($states.input) %}"
+      },
+      "End": true
+    },
+    "NotifyFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Arguments": {
+        "TopicArn": "${failure_topic_arn}",
+        "Message": "The callback worker reported a failure."
+      },
+      "End": true
+    }
+  }
+}

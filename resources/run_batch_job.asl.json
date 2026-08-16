@@ -1,0 +1,17 @@
+{
+    "Comment": "Run the AWS Batch S3 bucket listing job.",
+    "QueryLanguage": "JSONata",
+    "StartAt": "RunBatchJob",
+    "States": {
+        "RunBatchJob": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::batch:submitJob.sync",
+            "Arguments": {
+                "JobName": "aws-s3-list-buckets",
+                "JobQueue": "${job_queue_arn}",
+                "JobDefinition": "${job_definition_arn}"
+            },
+            "End": true
+        }
+    }
+}

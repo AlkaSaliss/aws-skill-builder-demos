@@ -7,5 +7,6 @@ terraform {
 }
 
 inputs = {
-  name = "skill-builder-step-functions-baseline"
+  name       = "skill-builder-step-functions-baseline"
+  definition = file("${get_terragrunt_dir()}/../../../../resources/hello_world_from_aws_workshop.asl.json")
 }

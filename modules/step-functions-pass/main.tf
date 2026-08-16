@@ -13,17 +13,22 @@ resource "aws_iam_role" "this" {
   })
 }
 
+resource "aws_iam_role_policy" "this" {
+  role = aws_iam_role.this.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "comprehend:DetectSentiment"
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_sfn_state_machine" "this" {
   name     = var.name
   role_arn = aws_iam_role.this.arn
 
-  definition = jsonencode({
-    StartAt = "HelloWorld"
-    States = {
-      HelloWorld = {
-        Type = "Pass"
-        End  = true
-      }
-    }
-  })
+  definition = var.definition
 }

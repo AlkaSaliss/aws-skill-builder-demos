@@ -1,8 +1,12 @@
-.PHONY: help install-tools fmt init validate plan apply destroy
+.PHONY: help install-tools fmt init validate plan apply destroy batch-image-push
 
 AWS_PROFILE ?= cli-mfa-user
 AWS_REGION ?= us-east-1
 STACK ?= step-functions-baseline
+ECR_REPOSITORY ?= aws-skill-builder-batch-hello-world
+IMAGE_TAG ?= latest
+IMAGE_CONTEXT ?= resources/batch-hello-world
+DOCKER_PLATFORM ?= linux/amd64
 
 ENVIRONMENT := dev
 LIVE_DIR := live/$(ENVIRONMENT)/$(AWS_REGION)/$(STACK)
@@ -18,8 +22,10 @@ help:
 		'plan      Preview changes without applying them' \
 		'apply     Apply the selected stack changes' \
 		'destroy   Destroy resources in the selected stack' \
+		'batch-image-push  Build and push the Batch image to ECR' \
 		'' \
-		'AWS_PROFILE=CLI-MFA-USER AWS_REGION=us-east-1 STACK=step-functions-baseline'
+		'AWS_PROFILE=cli-mfa-user AWS_REGION=us-east-1 STACK=step-functions-baseline' \
+		'ECR_REPOSITORY=aws-skill-builder-batch-hello-world IMAGE_TAG=latest DOCKER_PLATFORM=linux/amd64'
 
 # Install repository-pinned tools without changing global asdf defaults.
 install-tools:
@@ -46,3 +52,11 @@ apply:
 # Destroy the selected stack after Terragrunt's interactive approval.
 destroy:
 	cd $(LIVE_DIR) && terragrunt destroy
+
+batch-image-push:
+	@set -eu; \
+	account_id=$$(aws sts get-caller-identity --profile "$(AWS_PROFILE)" --query Account --output text); \
+	registry="$$account_id.dkr.ecr.$(AWS_REGION).amazonaws.com"; \
+	aws ecr get-login-password --profile "$(AWS_PROFILE)" --region "$(AWS_REGION)" | docker login --username AWS --password-stdin "$$registry"; \
+	docker build --platform "$(DOCKER_PLATFORM)" --tag "$$registry/$(ECR_REPOSITORY):$(IMAGE_TAG)" "$(IMAGE_CONTEXT)"; \
+	docker push "$$registry/$(ECR_REPOSITORY):$(IMAGE_TAG)"

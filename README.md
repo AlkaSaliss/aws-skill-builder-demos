@@ -11,11 +11,17 @@ stacks:
 root.hcl  Shared provider and input configuration
 modules/
   step-functions-pass/  Single-Pass Step Functions module
+  step-functions-batch/ Step Functions module for running an AWS Batch job
+  step-functions-callback-sqs/  SQS callback-token workflow module
+  batch-hello-world/    Fargate-based AWS Batch Hello World module
 live/
   dev/
     us-east-1/
       region.hcl
       step-functions-baseline/  Deployable Terragrunt unit
+      batch-hello-world/        Deployable Terragrunt unit
+      step-functions-batch/     Deployable Terragrunt unit
+      step-functions-callback-sqs/  Deployable Terragrunt unit
 ```
 
 The
@@ -97,3 +103,53 @@ make plan
 ```
 
 The repository does not generate, read, or store credential values.
+
+### Build and push the Batch image
+
+The module creates the ECR repository and configures the Batch job definition
+to use its URI. The container runs `aws s3api list-buckets` and prints the
+bucket names. Its task role is limited to `s3:ListAllMyBuckets`. Apply the
+module first, then build and push the image in
+[`resources/batch-hello-world/Dockerfile`](resources/batch-hello-world/Dockerfile):
+
+```shell
+AWS_PROFILE="your-profile" AWS_REGION="us-east-1" \
+  ECR_REPOSITORY="aws-skill-builder-batch-hello-world" \
+  IMAGE_TAG="latest" DOCKER_PLATFORM="linux/amd64" make batch-image-push
+```
+
+The module's `name` must match `ECR_REPOSITORY` when using the Make target.
+
+### SQS callback-token workflow
+
+The
+[`live/dev/us-east-1/step-functions-callback-sqs`](live/dev/us-east-1/step-functions-callback-sqs)
+stack creates a JSONata Step Functions state machine, an SQS queue, and a
+Python Lambda worker, plus success and failure SNS topics. Step Functions sends
+a task token to SQS and waits; the Lambda polls the queue and sends task success
+two-thirds of the time or task failure one-third of the time. The state machine
+publishes the callback result to the corresponding SNS topic.
+
+```shell
+AWS_REGION=us-east-1 STACK=step-functions-callback-sqs make plan
+AWS_REGION=us-east-1 STACK=step-functions-callback-sqs make apply
+```
+
+The Step Functions stack depends on the Batch stack and runs its S3 bucket
+listing job synchronously. Apply the Batch stack and push its image first:
+
+```shell
+AWS_REGION=us-east-1 STACK=batch-hello-world make apply
+make batch-image-push
+AWS_REGION=us-east-1 STACK=step-functions-batch make plan
+AWS_REGION=us-east-1 STACK=step-functions-batch make apply
+```
+
+The Batch stack is deployed with:
+
+```shell
+AWS_REGION=us-east-1 STACK=batch-hello-world make plan
+AWS_REGION=us-east-1 STACK=batch-hello-world make apply
+AWS_REGION=us-east-1 ECR_REPOSITORY=aws-skill-builder-batch-hello-world \
+  make batch-image-push
+```

@@ -2,6 +2,9 @@
 .terraform/
 .terragrunt-cache/
 
+# Terraform-generated Lambda packages
+*.zip
+
 # .tfstate files
 *.tfstate
 *.tfstate.*

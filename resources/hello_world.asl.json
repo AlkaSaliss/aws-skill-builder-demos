@@ -1,0 +1,11 @@
+{
+    "Comment": "A description of my state machine",
+    "QueryLanguage": "JSONata",
+    "StartAt": "HelloWorld",
+    "States": {
+        "HelloWorld": {
+            "Type": "Pass",
+            "End": true
+        }
+    }
+}
