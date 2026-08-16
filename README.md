@@ -13,6 +13,7 @@ modules/
   step-functions-pass/  Single-Pass Step Functions module
   step-functions-batch/ Step Functions module for running an AWS Batch job
   step-functions-callback-sqs/  SQS callback-token workflow module
+  step-functions-retry/  Step Functions Lambda retry module
   batch-hello-world/    Fargate-based AWS Batch Hello World module
 live/
   dev/
@@ -22,6 +23,7 @@ live/
       batch-hello-world/        Deployable Terragrunt unit
       step-functions-batch/     Deployable Terragrunt unit
       step-functions-callback-sqs/  Deployable Terragrunt unit
+      step-functions-retry/     Deployable Terragrunt unit
 ```
 
 The
@@ -152,4 +154,15 @@ AWS_REGION=us-east-1 STACK=batch-hello-world make plan
 AWS_REGION=us-east-1 STACK=batch-hello-world make apply
 AWS_REGION=us-east-1 ECR_REPOSITORY=aws-skill-builder-batch-hello-world \
   make batch-image-push
+```
+
+### Step Functions retry workflow
+
+The retry stack invokes a Python Lambda that always raises `CustomError`. The
+state machine retries that error twice, starting at one second and doubling the
+backoff each time.
+
+```shell
+AWS_REGION=us-east-1 STACK=step-functions-retry make plan
+AWS_REGION=us-east-1 STACK=step-functions-retry make apply
 ```

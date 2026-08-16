@@ -1,0 +1,27 @@
+{
+    "Comment": "Invoke a Lambda that always fails with a custom error.",
+    "StartAt": "Lambda Invoke",
+    "States": {
+        "Lambda Invoke": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Output": "{% $states.result.Payload %}",
+            "Arguments": {
+                "Payload": "{% $states.input %}",
+                "FunctionName": "${error_lambda_arn}"
+            },
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "CustomError"
+                    ],
+                    "IntervalSeconds": 1,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                }
+            ],
+            "End": true
+        }
+    },
+    "QueryLanguage": "JSONata"
+}
