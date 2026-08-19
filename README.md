@@ -188,7 +188,7 @@ AWS_REGION=us-east-1 STACK=step-functions-catch make apply
 The parallel stack exposes a `POST /execution` API Gateway endpoint. It sends
 the request body, such as `{"numbers": [1, 2, 3]}`, to three Lambda branches
 that compute the sum, minimum/maximum, and average independently. The endpoint
-waits for the Express workflow and returns its result.
+starts the Express workflow asynchronously and returns execution metadata.
 
 ```shell
 AWS_REGION=us-east-1 STACK=step-functions-parallel make plan

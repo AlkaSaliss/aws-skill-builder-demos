@@ -57,7 +57,7 @@ resource "aws_lambda_function" "sum" {
   runtime          = "python3.12"
   filename         = data.archive_file.sum.output_path
   source_code_hash = data.archive_file.sum.output_base64sha256
-  timeout          = 10
+  timeout          = 40
   memory_size      = 128
 
   depends_on = [aws_iam_role_policy.lambda]
@@ -70,7 +70,7 @@ resource "aws_lambda_function" "min_max" {
   runtime          = "python3.12"
   filename         = data.archive_file.min_max.output_path
   source_code_hash = data.archive_file.min_max.output_base64sha256
-  timeout          = 10
+  timeout          = 40
   memory_size      = 128
 
   depends_on = [aws_iam_role_policy.lambda]
@@ -83,7 +83,7 @@ resource "aws_lambda_function" "average" {
   runtime          = "python3.12"
   filename         = data.archive_file.average.output_path
   source_code_hash = data.archive_file.average.output_base64sha256
-  timeout          = 10
+  timeout          = 40
   memory_size      = 128
 
   depends_on = [aws_iam_role_policy.lambda]
@@ -121,6 +121,35 @@ resource "aws_iam_role_policy" "state_machine" {
   })
 }
 
+resource "aws_cloudwatch_log_group" "state_machine" {
+  name              = "/aws/vendedlogs/states/${var.name}"
+  retention_in_days = 7
+}
+
+resource "aws_iam_role_policy" "state_machine_logging" {
+  role = aws_iam_role.state_machine.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogDelivery",
+        "logs:CreateLogStream",
+        "logs:GetLogDelivery",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutLogEvents",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:DescribeLogGroups"
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_sfn_state_machine" "this" {
   name     = var.name
   role_arn = aws_iam_role.state_machine.arn
@@ -131,7 +160,16 @@ resource "aws_sfn_state_machine" "this" {
     average_lambda_arn = aws_lambda_function.average.arn
   })
 
-  depends_on = [aws_iam_role_policy.state_machine]
+  logging_configuration {
+    include_execution_data = true
+    level                  = "ALL"
+    log_destination        = "${aws_cloudwatch_log_group.state_machine.arn}:*"
+  }
+
+  depends_on = [
+    aws_iam_role_policy.state_machine,
+    aws_iam_role_policy.state_machine_logging
+  ]
 }
 
 resource "aws_iam_role" "api_gateway" {
@@ -155,8 +193,11 @@ resource "aws_iam_role_policy" "api_gateway" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["states:StartSyncExecution", "states:StartExecution"]
+      Effect = "Allow"
+      Action = [
+        "states:StartExecution",
+        "states:StartSyncExecution"
+      ]
       Resource = aws_sfn_state_machine.this.arn
     }]
   })
@@ -185,7 +226,7 @@ resource "aws_api_gateway_integration" "execution_post" {
   http_method             = aws_api_gateway_method.execution_post.http_method
   integration_http_method = "POST"
   type                    = "AWS"
-  uri                     = "arn:aws:apigateway:${data.aws_region.current.region}:states:action/StartExecution"
+  uri                     = "arn:aws:apigateway:${data.aws_region.current.region}:states:action/StartSyncExecution"
   credentials             = aws_iam_role.api_gateway.arn
   passthrough_behavior    = "NEVER"
 
@@ -201,6 +242,22 @@ resource "aws_api_gateway_integration" "execution_post" {
   depends_on = [aws_iam_role_policy.api_gateway]
 }
 
+resource "aws_api_gateway_method_response" "execution_post_200" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.execution.id
+  http_method = aws_api_gateway_method.execution_post.http_method
+  status_code = "200"
+}
+
+resource "aws_api_gateway_integration_response" "execution_post_200" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  resource_id = aws_api_gateway_resource.execution.id
+  http_method = aws_api_gateway_method.execution_post.http_method
+  status_code = aws_api_gateway_method_response.execution_post_200.status_code
+
+  depends_on = [aws_api_gateway_integration.execution_post]
+}
+
 resource "aws_api_gateway_deployment" "this" {
   rest_api_id = aws_api_gateway_rest_api.this.id
 
@@ -209,7 +266,8 @@ resource "aws_api_gateway_deployment" "this" {
       aws_api_gateway_method.execution_post.id,
       aws_api_gateway_integration.execution_post.id,
       aws_api_gateway_integration.execution_post.uri,
-      aws_api_gateway_integration.execution_post.request_templates
+      aws_api_gateway_integration.execution_post.request_templates,
+      aws_api_gateway_integration_response.execution_post_200.id
     ]))
   }
 
@@ -217,7 +275,7 @@ resource "aws_api_gateway_deployment" "this" {
     create_before_destroy = true
   }
 
-  depends_on = [aws_api_gateway_integration.execution_post]
+  depends_on = [aws_api_gateway_integration_response.execution_post_200]
 }
 
 resource "aws_api_gateway_stage" "dev" {
