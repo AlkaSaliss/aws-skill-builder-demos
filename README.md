@@ -185,10 +185,20 @@ AWS_REGION=us-east-1 STACK=step-functions-catch make apply
 
 ### Step Functions parallel workflow
 
-The parallel stack sends `{"numbers": [1, 2, 3]}` to three Lambda branches that
-compute the sum, minimum/maximum, and average independently.
+The parallel stack exposes a `POST /execution` API Gateway endpoint. It sends
+the request body, such as `{"numbers": [1, 2, 3]}`, to three Lambda branches
+that compute the sum, minimum/maximum, and average independently. The endpoint
+waits for the Express workflow and returns its result.
 
 ```shell
 AWS_REGION=us-east-1 STACK=step-functions-parallel make plan
 AWS_REGION=us-east-1 STACK=step-functions-parallel make apply
+```
+
+After deployment, call the API with the `api_invoke_url` Terraform output:
+
+```shell
+curl -X POST "$API_INVOKE_URL" \
+  -H 'content-type: application/json' \
+  -d '{"numbers": [1, 2, 3]}'
 ```
