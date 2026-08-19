@@ -1,0 +1,62 @@
+{
+    "Comment": "Invoke a Lambda and route its errors through ordered catches.",
+    "StartAt": "InvokeLambda",
+    "States": {
+        "InvokeLambda": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Output": "{% $states.result.Payload %}",
+            "Arguments": {
+                "Payload": "{% $states.input %}",
+                "FunctionName": "${error_lambda_arn}"
+            },
+            "TimeoutSeconds": 2,
+            "End": true,
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "CustomError"
+                    ],
+                    "Next": "CustomErrorFallback"
+                },
+                {
+                    "ErrorEquals": [
+                        "States.Timeout"
+                    ],
+                    "Next": "TimeoutFallback"
+                },
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "CatchAllFallback"
+                }
+            ]
+        },
+        "CustomErrorFallback": {
+            "Type": "Pass",
+            "Output": {
+                "branch": "CustomErrorFallback",
+                "message": "The CustomError catch fired."
+            },
+            "End": true
+        },
+        "TimeoutFallback": {
+            "Type": "Pass",
+            "Output": {
+                "branch": "TimeoutFallback",
+                "message": "The States.Timeout catch fired."
+            },
+            "End": true
+        },
+        "CatchAllFallback": {
+            "Type": "Pass",
+            "Output": {
+                "branch": "CatchAllFallback",
+                "message": "The States.ALL catch fired."
+            },
+            "End": true
+        }
+    },
+    "QueryLanguage": "JSONata"
+}

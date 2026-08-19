@@ -1,0 +1,58 @@
+{
+    "Comment": "Compute sum, minimum/maximum, and average in parallel.",
+    "StartAt": "Parallel",
+    "States": {
+        "Parallel": {
+            "Type": "Parallel",
+            "End": true,
+            "Branches": [
+                {
+                    "StartAt": "Sum",
+                    "States": {
+                        "Sum": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Output": "{% $states.result.Payload %}",
+                            "Arguments": {
+                                "Payload": "{% $states.input %}",
+                                "FunctionName": "${sum_lambda_arn}"
+                            },
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "MinMax",
+                    "States": {
+                        "MinMax": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Output": "{% $states.result.Payload %}",
+                            "Arguments": {
+                                "Payload": "{% $states.input %}",
+                                "FunctionName": "${min_max_lambda_arn}"
+                            },
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "Average",
+                    "States": {
+                        "Average": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Output": "{% $states.result.Payload %}",
+                            "Arguments": {
+                                "Payload": "{% $states.input %}",
+                                "FunctionName": "${average_lambda_arn}"
+                            },
+                            "End": true
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "QueryLanguage": "JSONata"
+}

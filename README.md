@@ -14,6 +14,8 @@ modules/
   step-functions-batch/ Step Functions module for running an AWS Batch job
   step-functions-callback-sqs/  SQS callback-token workflow module
   step-functions-retry/  Step Functions Lambda retry module
+  step-functions-catch/  Step Functions Lambda catch module
+  step-functions-parallel/  Step Functions parallel Lambda module
   batch-hello-world/    Fargate-based AWS Batch Hello World module
 live/
   dev/
@@ -24,6 +26,8 @@ live/
       step-functions-batch/     Deployable Terragrunt unit
       step-functions-callback-sqs/  Deployable Terragrunt unit
       step-functions-retry/     Deployable Terragrunt unit
+      step-functions-catch/     Deployable Terragrunt unit
+      step-functions-parallel/  Deployable Terragrunt unit
 ```
 
 The
@@ -165,4 +169,26 @@ backoff each time.
 ```shell
 AWS_REGION=us-east-1 STACK=step-functions-retry make plan
 AWS_REGION=us-east-1 STACK=step-functions-retry make apply
+```
+
+### Step Functions catch workflow
+
+The catch stack invokes a Python Lambda that randomly selects `CustomError`, a
+Task timeout, or a generic error with equal probability. The state machine
+routes those outcomes to `CustomErrorFallback`, `TimeoutFallback`, or
+`CatchAllFallback`.
+
+```shell
+AWS_REGION=us-east-1 STACK=step-functions-catch make plan
+AWS_REGION=us-east-1 STACK=step-functions-catch make apply
+```
+
+### Step Functions parallel workflow
+
+The parallel stack sends `{"numbers": [1, 2, 3]}` to three Lambda branches that
+compute the sum, minimum/maximum, and average independently.
+
+```shell
+AWS_REGION=us-east-1 STACK=step-functions-parallel make plan
+AWS_REGION=us-east-1 STACK=step-functions-parallel make apply
 ```
