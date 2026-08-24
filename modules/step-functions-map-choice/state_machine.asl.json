@@ -1,0 +1,59 @@
+{
+    "Comment": "Process orders in parallel and store only high-priority orders.",
+    "QueryLanguage": "JSONata",
+    "StartAt": "ProcessOrders",
+    "States": {
+        "ProcessOrders": {
+            "Type": "Map",
+            "ItemProcessor": {
+                "ProcessorConfig": {
+                    "Mode": "INLINE"
+                },
+                "StartAt": "CheckPriority",
+                "States": {
+                    "CheckPriority": {
+                        "Type": "Choice",
+                        "Choices": [
+                            {
+                                "Condition": "{% $states.input.MessageDetails.priority = 'HIGH' %}",
+                                "Next": "WriteHighPriorityOrder"
+                            }
+                        ],
+                        "Default": "IgnoreLowPriorityOrder"
+                    },
+                    "WriteHighPriorityOrder": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::dynamodb:putItem",
+                        "Arguments": {
+                            "TableName": "${table_name}",
+                            "Item": {
+                                "orderId": {
+                                    "S": "{% $states.input.MessageDetails.orderId %}"
+                                },
+                                "customerId": {
+                                    "S": "{% $states.input.MessageDetails.customerId %}"
+                                },
+                                "priority": {
+                                    "S": "{% $states.input.MessageDetails.priority %}"
+                                }
+                            }
+                        },
+                        "Output": "{% $states.input %}",
+                        "End": true
+                    },
+                    "IgnoreLowPriorityOrder": {
+                        "Type": "Succeed",
+                        "Output": "{% $states.input %}"
+                    }
+                }
+            },
+            "End": true,
+            "Items": "{% $states.input.Data %}",
+            "ItemSelector": {
+                "MessageNumber": "{% $states.context.Map.Item.Index %}",
+                "MessageDetails": "{% $states.context.Map.Item.Value %}"
+            },
+            "MaxConcurrency": 6
+        }
+    }
+}

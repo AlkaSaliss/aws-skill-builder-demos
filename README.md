@@ -16,6 +16,7 @@ modules/
   step-functions-retry/  Step Functions Lambda retry module
   step-functions-catch/  Step Functions Lambda catch module
   step-functions-parallel/  Step Functions parallel Lambda module
+  step-functions-map-choice/  Step Functions Map and Choice DynamoDB module
   batch-hello-world/    Fargate-based AWS Batch Hello World module
 live/
   dev/
@@ -28,6 +29,7 @@ live/
       step-functions-retry/     Deployable Terragrunt unit
       step-functions-catch/     Deployable Terragrunt unit
       step-functions-parallel/  Deployable Terragrunt unit
+      step-functions-map-choice/  Deployable Terragrunt unit
 ```
 
 The
@@ -201,4 +203,16 @@ After deployment, call the API with the `api_invoke_url` Terraform output:
 curl -X POST "$API_INVOKE_URL" \
   -H 'content-type: application/json' \
   -d '{"numbers": [1, 2, 3]}'
+```
+
+### Step Functions Map and Choice workflow
+
+The Map and Choice stack uses JSONata and accepts an object containing a `Data`
+array of orders. It processes the orders in parallel, writes high-priority
+orders to DynamoDB, and skips low-priority orders. Each order must contain
+`orderId`, `customerId`, and `priority` (`HIGH` or `LOW`) fields.
+
+```shell
+AWS_REGION=us-east-1 STACK=step-functions-map-choice make plan
+AWS_REGION=us-east-1 STACK=step-functions-map-choice make apply
 ```
